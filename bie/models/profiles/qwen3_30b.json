@@ -1,0 +1,28 @@
+{
+  "model_id": "qwen3-30b-a3b",
+  "skill81_profile": {
+    "sa81e_name": "Qwen3-30B-A3B",
+    "strengths": ["reasoning", "code", "structured output", "math"],
+    "weaknesses": ["overhead explanation", "verbosity on open-ended"],
+    "optimizations": [
+      "format_lock_strict",
+      "token_limit_per_section",
+      "explicit_success_criterion"
+    ]
+  },
+  "inference_params": {
+    "temperature": 0.7,
+    "top_p": 0.80,
+    "top_k": 20,
+    "repeat_penalty": 1.05,
+    "min_p": 0.0
+  },
+  "moe_offload": {
+    "pattern": "\\.ffn_.*_exps\\.=CPU",
+    "ngl": 99,
+    "flash_attention": true,
+    "kv_cache_type": "q4_1"
+  },
+  "ctx_size": 32768,
+  "prompt_template": "chatml"
+}

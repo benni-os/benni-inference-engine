@@ -1,0 +1,25 @@
+{
+  "model_id": "kimi-k2-32b",
+  "skill81_profile": {
+    "sa81e_name": "Kimi K2",
+    "strengths": ["agentic tasks", "tool use", "long context", "coding"],
+    "weaknesses": ["slower cold start", "dense — no MoE speed benefit"],
+    "optimizations": [
+      "role_lock_strong",
+      "tool_call_explicit_format",
+      "constraint_set_anti_overexplain"
+    ]
+  },
+  "inference_params": {
+    "temperature": 0.6,
+    "top_p": 0.95,
+    "top_k": 40,
+    "repeat_penalty": 1.0,
+    "min_p": 0.0
+  },
+  "moe_offload": null,
+  "ngl": 20,
+  "flash_attention": true,
+  "ctx_size": 16384,
+  "prompt_template": "kimi"
+}

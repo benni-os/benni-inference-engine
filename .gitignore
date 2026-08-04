@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.env
+*.gguf
+*.bin
+.bie_hot_pin.json
+*.log
+.venv/
+venv/

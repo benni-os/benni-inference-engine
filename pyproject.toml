@@ -1,0 +1,59 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "benni-inference-engine"
+version = "0.1.0"
+description = "GPU+CPU hybrid inference engine for the Benni OS ecosystem — MoE offload, Skill 81 Ceiling Extraction, OpenAI-compatible serve mode"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.11"
+authors = [
+  { name = "Benni Alencar", email = "benni@benni-os.net" }
+]
+keywords = ["llm", "inference", "moe", "gpu", "cpu", "offload", "openai", "mcp", "jarvas", "benni-os"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+  "fastapi>=0.115.0",
+  "uvicorn[standard]>=0.30.0",
+  "pydantic>=2.0",
+  "httpx>=0.27.0",
+  "rich>=13.0",
+  "typer>=0.12.0",
+  "psutil>=6.0",
+]
+
+[project.optional-dependencies]
+cuda = [
+  "llama-cpp-python[cuda]",
+]
+cpu = [
+  "llama-cpp-python",
+]
+dev = [
+  "pytest>=8.0",
+  "pytest-asyncio>=0.23",
+  "httpx>=0.27.0",
+  "ruff>=0.5.0",
+]
+all = [
+  "benni-inference-engine[cuda,dev]"
+]
+
+[project.scripts]
+bie = "bie.cli:app"
+
+[project.urls]
+Homepage = "https://github.com/benni-os/benni-inference-engine"
+Repository = "https://github.com/benni-os/benni-inference-engine"
+Issues = "https://github.com/benni-os/benni-inference-engine/issues"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
