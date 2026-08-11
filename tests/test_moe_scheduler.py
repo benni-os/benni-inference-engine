@@ -43,6 +43,15 @@ def test_expert_cache_slots_limited_by_ram():
     assert config["expert_cache_slots"] == 16
 
 
+def test_qwen3_8b_profile_is_dense():
+    scheduler = MoEScheduler("qwen3-8b", budget=_budget(vram=8, ram=16))
+    config = scheduler.compute()
+    assert config["model_profile"] == "known"
+    assert config["ngl"] == 33
+    assert config["expert_cache_slots"] == 0
+    assert config["planner_source"] == "calculated"
+
+
 def test_profile_and_budget_injection():
     profile = ModelProfile(
         total_layers=32,

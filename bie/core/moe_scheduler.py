@@ -41,6 +41,12 @@ DEFAULT_PROFILES: dict[str, ModelProfile] = {
         expert_cache_gb_per_slot=0.12,
         expert_slots=128,
     ),
+    "qwen3-8b": ModelProfile(
+        total_layers=36,
+        dense_layer_gb=0.14,
+        expert_cache_gb_per_slot=0.0,
+        expert_slots=0,
+    ),
 }
 
 
