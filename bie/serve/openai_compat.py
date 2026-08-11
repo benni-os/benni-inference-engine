@@ -76,7 +76,7 @@ async def models() -> dict[str, Any]:
     return {"object": "list", "data": [{"id": model, "object": "model", "owned_by": "benni-os"}]}
 
 
-@app.post("/v1/completions")
+@app.post("/v1/completions", response_model=None)
 async def completions(request: CompletionRequest) -> dict[str, Any] | StreamingResponse:
     engine = _require_engine()
     request_id = f"cmpl-{uuid.uuid4().hex}"
@@ -88,7 +88,7 @@ async def completions(request: CompletionRequest) -> dict[str, Any] | StreamingR
     return {"id": request_id, "object": "text_completion", "created": int(time.time()), "model": request.model, "choices": [{"text": text, "index": 0, "finish_reason": "stop"}]}
 
 
-@app.post("/v1/chat/completions")
+@app.post("/v1/chat/completions", response_model=None)
 async def chat_completions(request: ChatCompletionRequest) -> dict[str, Any] | StreamingResponse:
     engine = _require_engine()
     prompt = "\n".join(f"{message.role}: {message.content}" for message in request.messages)
