@@ -1,0 +1,71 @@
+{
+  "name": "Qwen3-8B-Q4_K_M-offload-measured",
+  "model": "Qwen3-8B-Q4_K_M",
+  "quant": "Q4_K_M",
+  "source": "medido (bie/tools/vram_profiler.py, 2026-08-11)",
+  "file_size_gb": 5.03,
+  "total_layers": 36,
+  "measured_dense_layer_gb": 0.14,
+  "measured_vram_curve_mib": {
+    "1": 2402,
+    "2": 2633,
+    "3": 2704,
+    "4": 2850,
+    "5": 3002,
+    "6": 3227,
+    "7": 3282,
+    "8": 3420,
+    "9": 3583,
+    "10": 3657,
+    "11": 3793,
+    "12": 3927,
+    "13": 4077,
+    "14": 4213,
+    "15": 4347,
+    "16": 4497,
+    "17": 4633,
+    "18": 4767,
+    "19": 4912,
+    "20": 5035,
+    "21": 5180,
+    "22": 5326,
+    "23": 5442,
+    "24": 5600,
+    "25": 5743,
+    "26": 5880,
+    "27": 6010,
+    "28": 6148,
+    "29": 6308,
+    "30": 6435,
+    "31": 6582,
+    "32": 6731,
+    "33": 6848,
+    "34": 6997,
+    "35": 7159,
+    "36": 7151
+  },
+  "kv_cache_mib": {
+    "8192": 776,
+    "16384": 1998
+  },
+  "kv_32768": "oom (ngl=22 + ctx 32768 nao cabe em 8GB)",
+  "configs": {
+    "balanced": {
+      "ngl": 22,
+      "vram_load_mib": 5326,
+      "decode_tok_s": 15.1,
+      "vram_peak_mib": 5519
+    },
+    "full_offload": {
+      "ngl": 36,
+      "vram_load_mib": 7151,
+      "note": "load OK (7151 MiB); geracao em 8K proxima do limite"
+    },
+    "low_vram": {
+      "ngl": 6,
+      "vram_load_mib": 3227,
+      "note": "3.2GB VRAM, decode mais lento (muitas camadas em CPU)"
+    }
+  },
+  "notes": "Curva de VRAM medida por n_gpu_layers. dense_layer_gb medido = 0.14 (valida o perfil do scheduler)."
+}

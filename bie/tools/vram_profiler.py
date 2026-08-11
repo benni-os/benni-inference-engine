@@ -1,21 +1,29 @@
 #!/usr/bin/env python3
-"""BIE VRAM Profiler — Mede uso de VRAM por camada, KV cache, throughput PCIe
+"""BIE VRAM Profiler — Mede VRAM por camada, KV cache, throughput PCIe.
 
 Objetivo: Baseline para otimização de offload (32GB VRAM -> 8GB)
 """
 
 import json
 import subprocess
+import sys
 from pathlib import Path
 
 
 def run_bie_benchmark(model: str = "Qwen3-8B-Q4_K_M", n_ctx: int = 8192):
     """Rodar benchmark do BIE e coletar métricas de VRAM."""
-    # Usar CLI real do BIE (ajustar conforme implementação atual)
-    cmd = ["python", "-m", "bie.serve", "bench", "--model", model, "--n-gpu-layers", "22", "--json"]
+    cmd = [
+        sys.executable, "-m", "bie.serve", "bench",
+        "--model", model,
+        "--model-path", f"bie/models/{model}.gguf",
+        "--context", str(n_ctx),
+        "--n-gpu-layers", "22",
+        "--reps", "3",
+        "--json",
+    ]
     result = subprocess.run(cmd, capture_output=True, text=True, cwd=".", check=False)
     if result.returncode != 0:
-        print(f"Erro no benchmark: {result.stderr}")
+        print(f"Erro no benchmark: {result.stderr[:500]}")
         return None
     try:
         return json.loads(result.stdout)
@@ -24,23 +32,45 @@ def run_bie_benchmark(model: str = "Qwen3-8B-Q4_K_M", n_ctx: int = 8192):
         return None
 
 
+def _loaded_vram_mib(model_path: str, n_gpu_layers: int, n_ctx: int) -> int | None:
+    """Carrega o modelo e reporta a VRAM usada enquanto o modelo está vivo."""
+    code = f"""
+import subprocess, time
+from llama_cpp import Llama
+llm = Llama(model_path=r"{model_path}", n_gpu_layers={n_gpu_layers}, n_ctx={n_ctx}, verbose=False)
+llm.create_chat_completion(messages=[{{"role": "user", "content": "test"}}], max_tokens=2)
+time.sleep(0.3)
+out = subprocess.run(
+    ["nvidia-smi", "--query-gpu=memory.used", "--format=csv,noheader,nounits"],
+    capture_output=True, text=True, check=False,
+)
+print(out.stdout.strip())
+    """
+    result = subprocess.run(
+        [sys.executable, "-c", code], capture_output=True, text=True, check=False
+    )
+    if result.returncode != 0:
+        print(f"  erro load ngl={n_gpu_layers}: {result.stderr.strip()[:200]}")
+        return None
+    try:
+        return int(result.stdout.strip().splitlines()[-1])
+    except (ValueError, IndexError):
+        return None
+
+
 def measure_vram_per_layer(model: str = "Qwen3-8B-Q4_K_M"):
-    """Medir VRAM por camada usando llama.cpp + nvidia-smi."""
+    """Medir VRAM usada por n_gpu_layers de 1..36 (load real do modelo)."""
     layers = []
     model_path = f"bie/models/{model}.gguf"
-
+    previous = None
     for layer_id in range(36):
-        cmd = ["python", "-c", f"""
-from llama_cpp import Llama
-llm = Llama(model_path=r"{model_path}", n_gpu_layers={layer_id + 1}, n_ctx=8192)
-llm.create_chat_completion(messages=[{{"role": "user", "content": "test"}}])
-        """]
-        result = subprocess.run(cmd, capture_output=True, text=True, check=False)
-        if result.returncode == 0:
-            vram = get_vram_usage()
-            layers.append({"layer": layer_id, "vram_mb": vram})
-            print(f"Layer {layer_id}: {vram} MB")
-
+        used = _loaded_vram_mib(model_path, layer_id + 1, 8192)
+        if used is None:
+            continue
+        delta = used - previous if previous is not None else used
+        layers.append({"layer": layer_id, "ngl": layer_id + 1, "vram_used_mib": used, "vram_delta_mib": delta})
+        print(f"Layer {layer_id} (ngl={layer_id + 1}): {used} MiB (delta +{delta})")
+        previous = used
     return layers
 
 
@@ -52,49 +82,44 @@ def get_vram_usage():
 
 
 def measure_pcie_throughput():
-    """Medir throughput PCIe durante inferência."""
+    """Medir throughput PCIe durante inferência (nvidia-smi dmon)."""
     cmd = ["nvidia-smi", "dmon", "-c", "10", "-s", "p"]
     result = subprocess.run(cmd, capture_output=True, text=True, check=False)
     return result.stdout
 
 
 def profile_kv_cache(model: str = "Qwen3-8B-Q4_K_M", contexts: list | None = None):
-    """Medir KV cache por tamanho de contexto."""
+    """Medir VRAM por tamanho de contexto (KV cache), fixando ngl=22."""
     if contexts is None:
         contexts = [8192, 16384, 32768]
-
     results = []
     model_path = f"bie/models/{model}.gguf"
-
+    reference = _loaded_vram_mib(model_path, 22, 2048)
+    if reference is None:
+        return results
     for ctx in contexts:
-        vram_before = get_vram_usage()
-
-        cmd = ["python", "-c", f"""
-from llama_cpp import Llama
-llm = Llama(model_path=r"{model_path}", n_gpu_layers=22, n_ctx={ctx})
-llm.create_chat_completion(messages=[{{"role": "user", "content": "test"}}])
-        """]
-        result = subprocess.run(cmd, capture_output=True, text=True, check=False)
-        if result.returncode == 0:
-            vram_after = get_vram_usage()
-            results.append({"context": ctx, "kv_cache_mb": vram_after - vram_before})
-            print(f"Context {ctx}: KV cache = {results[-1]['kv_cache_mb']} MB")
-
+        used = _loaded_vram_mib(model_path, 22, ctx)
+        if used is None:
+            continue
+        kv_mib = max(used - reference, 0)
+        results.append({"context": ctx, "vram_used_mib": used, "kv_cache_mib": kv_mib})
+        print(f"Context {ctx}: {used} MiB (KV vs ctx2048: +{kv_mib} MiB)")
     return results
 
 
 def main():
     print("=" * 60)
-    print("BIE VRAM Profiler — Baseline para Otimização (32GB → 8GB)")
+    print("BIE VRAM Profiler — Baseline para Otimização (32GB -> 8GB)")
     print("=" * 60)
 
-    print("\n[1/4] Benchmark baseline...")
+    print("\n[1/4] Benchmark baseline (bie.serve bench)...")
     benchmark = run_bie_benchmark()
     if benchmark:
         print(f"Decode: {benchmark.get('decode_tok_s', 'N/A')} tok/s")
         print(f"VRAM pico: {benchmark.get('vram_peak_mib', 'N/A')} MiB")
+        print(f"VRAM delta: {benchmark.get('vram_delta_mib', 'N/A')} MiB")
 
-    print("\n[2/4] VRAM por camada...")
+    print("\n[2/4] VRAM por n_gpu_layers...")
     layers = measure_vram_per_layer()
     print(f"Camadas medidas: {len(layers)}")
 
@@ -110,7 +135,7 @@ def main():
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with open(output_path, "w") as f:
         json.dump(output, f, indent=2)
-    print(f"\n✅ Resultados salvos em {output_path}")
+    print(f"\nResultados salvos em {output_path}")
 
 
 if __name__ == "__main__":
