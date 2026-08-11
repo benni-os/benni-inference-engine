@@ -9,4 +9,5 @@ build/
 .bie_hot_pin.json
 *.log
 .venv/
+.venv-bie-runtime/
 venv/

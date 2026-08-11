@@ -1,6 +1,6 @@
 [build-system]
 requires = ["setuptools>=68", "wheel"]
-build-backend = "setuptools.backends.legacy:build"
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "benni-inference-engine"
@@ -31,10 +31,10 @@ dependencies = [
 
 [project.optional-dependencies]
 cuda = [
-  "llama-cpp-python[cuda]",
+  "llama-cpp-python[cuda]>=0.3.4",
 ]
 cpu = [
-  "llama-cpp-python",
+  "llama-cpp-python>=0.3.4",
 ]
 dev = [
   "pytest>=8.0",
