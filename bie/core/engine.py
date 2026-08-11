@@ -7,6 +7,7 @@ from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
+from .backend import BackendConfig, LlamaCppBackend
 from .moe_scheduler import MoEScheduler
 
 
@@ -32,6 +33,7 @@ class BIEEngine:
         self.n_batch = n_batch
         self.verbose = verbose
         self.model: Any | None = None
+        self.backend: LlamaCppBackend | None = None
         self.runtime_config: dict[str, Any] | None = None
 
     def resolve_model_path(self) -> Path:
@@ -54,21 +56,21 @@ class BIEEngine:
         """Load the model using the hardware recommendation from MoEScheduler."""
         model_path = self.resolve_model_path()
         config = MoEScheduler(self.model_name).compute()
-        try:
-            from llama_cpp import Llama
-        except ImportError as exc:
-            raise RuntimeError(
-                "llama-cpp-python is required; install the CUDA build for GPU inference."
-            ) from exc
-        self.model = Llama(
-            model_path=str(model_path),
+        backend = LlamaCppBackend()
+        backend_config = BackendConfig(
+            model_path=model_path,
             n_ctx=self.n_ctx,
             n_threads=self.n_threads,
             n_batch=self.n_batch,
-            n_gpu_layers=int(config["ngl"]),
+            ngl=int(config.get("ngl", 0)),
+            expert_cache_slots=int(config.get("expert_cache_slots", 0)),
+            moe_offload_pattern=config.get("moe_offload_pattern", ""),
             verbose=self.verbose,
         )
-        self.runtime_config = {**config, "model_path": str(model_path)}
+        report = backend.load(backend_config)
+        self.backend = backend
+        self.model = backend.model
+        self.runtime_config = {**config, "model_path": str(model_path), **report}
         return self.runtime_config
 
     def _require_model(self) -> Any:
@@ -98,5 +100,8 @@ class BIEEngine:
 
     def unload(self) -> None:
         """Release the model reference and runtime configuration."""
+        if self.backend is not None:
+            self.backend.unload()
+        self.backend = None
         self.model = None
         self.runtime_config = None
