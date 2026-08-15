@@ -225,6 +225,9 @@ def run_cycle(args: argparse.Namespace) -> dict[str, Any]:
     result = run_process(command(args), args.timeout_s, args.gpu_index)
     payload = parse_json(result["stdout"])
     decode = metric(payload, ("decode_tok_s", "tok_s", "tokens_per_second"))
+    self_ram = metric(payload, ("ram_peak_mib",))
+    if self_ram is not None:
+        result["ram_peak_mib"] = int(self_ram)
     result["payload"] = payload
     result["decode_tok_s"] = decode
     result["load_ok"] = result["returncode"] == 0 and not result["timed_out"] and decode is not None
