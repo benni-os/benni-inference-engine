@@ -1,17 +1,15 @@
 #!/usr/bin/env python3
-"""Gate 30B runner — measurement only.
-
-No model download, package installation, or system service mutation.
-Missing measurements never pass the gate.
-"""
+"""Gate 30B runner — measurement only, fail-closed on missing evidence."""
 from __future__ import annotations
 
 import argparse
+import ctypes
 import json
 import subprocess
 import sys
 import threading
 import time
+from ctypes import wintypes
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
@@ -45,18 +43,47 @@ def not_measured(name: str, limit: Any, detail: str) -> Criterion:
 
 def evaluate(criteria: list[Criterion]) -> dict[str, Any]:
     if any(item.passed is False for item in criteria):
-        status = "rejected"
-        approved = False
+        status, approved = "rejected", False
     elif any(item.status != "measured" or item.passed is not True for item in criteria):
-        status = "not_measured"
-        approved = False
+        status, approved = "not_measured", False
     else:
-        status = "approved"
-        approved = True
+        status, approved = "approved", True
     return {"status": status, "approved": approved, "criteria": [item.as_dict() for item in criteria]}
 
 
+def _rss_windows(pid: int) -> int | None:
+    class PROCESS_MEMORY_COUNTERS(ctypes.Structure):
+        _fields_ = [
+            ("cb", wintypes.DWORD),
+            ("PageFaultCount", wintypes.DWORD),
+            ("PeakWorkingSetSize", ctypes.c_size_t),
+            ("WorkingSetSize", ctypes.c_size_t),
+            ("QuotaPeakPagedPoolUsage", ctypes.c_size_t),
+            ("QuotaPagedPoolUsage", ctypes.c_size_t),
+            ("QuotaPeakNonPagedPoolUsage", ctypes.c_size_t),
+            ("QuotaNonPagedPoolUsage", ctypes.c_size_t),
+            ("PagefileUsage", ctypes.c_size_t),
+            ("PeakPagefileUsage", ctypes.c_size_t),
+        ]
+
+    try:
+        handle = ctypes.windll.kernel32.OpenProcess(0x1000, False, pid)
+        if not handle:
+            return None
+        counters = PROCESS_MEMORY_COUNTERS()
+        counters.cb = ctypes.sizeof(counters)
+        ok = ctypes.windll.psapi.GetProcessMemoryInfo(
+            handle, ctypes.byref(counters), counters.cb
+        )
+        ctypes.windll.kernel32.CloseHandle(handle)
+        return int(counters.WorkingSetSize // (1024 * 1024)) if ok else None
+    except (AttributeError, OSError, ValueError):
+        return None
+
+
 def rss_mib(pid: int) -> int | None:
+    if sys.platform == "win32":
+        return _rss_windows(pid)
     try:
         for line in Path(f"/proc/{pid}/status").read_text(encoding="utf-8").splitlines():
             if line.startswith("VmRSS:"):
@@ -67,7 +94,12 @@ def rss_mib(pid: int) -> int | None:
 
 
 def vram_mib(gpu_index: int) -> tuple[int | None, str | None]:
-    cmd = ["nvidia-smi", f"--id={gpu_index}", "--query-gpu=memory.used", "--format=csv,noheader,nounits"]
+    cmd = [
+        "nvidia-smi",
+        f"--id={gpu_index}",
+        "--query-gpu=memory.used",
+        "--format=csv,noheader,nounits",
+    ]
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=10, check=False)
     except (OSError, subprocess.TimeoutExpired) as exc:
@@ -169,13 +201,22 @@ def degradation(first: float | None, last: float | None) -> float | None:
 
 def command(args: argparse.Namespace) -> list[str]:
     return [
-        sys.executable, "-m", "bie.serve", "bench",
-        "--model-path", str(args.model_path),
-        "--context", str(args.context),
-        "--n-gpu-layers", str(args.n_gpu_layers),
-        "--reps", str(args.reps),
-        "--prompt-tokens", str(args.prompt_tokens),
-        "--max-tokens", str(args.max_tokens),
+        sys.executable,
+        "-m",
+        "bie.serve",
+        "bench",
+        "--model-path",
+        str(args.model_path),
+        "--context",
+        str(args.context),
+        "--n-gpu-layers",
+        str(args.n_gpu_layers),
+        "--reps",
+        str(args.reps),
+        "--prompt-tokens",
+        str(args.prompt_tokens),
+        "--max-tokens",
+        str(args.max_tokens),
         "--json",
     ]
 
@@ -207,20 +248,21 @@ def main(argv: list[str] | None = None) -> int:
     if not path.is_file():
         print(json.dumps({"status": "not_measured", "error": "model_not_found"}, indent=2))
         return 1
-
     benchmark = run_cycle(args)
-    cycles = []
-    rates = []
+    rates: list[float] = []
+    cycles: list[dict[str, Any]] = []
     for _ in range(args.soak_cycles):
         cycle = run_cycle(args)
-        cycles.append({
-            "decode_tok_s": cycle.get("decode_tok_s"),
-            "returncode": cycle.get("returncode"),
-            "timed_out": cycle.get("timed_out"),
-            "ram_peak_mib": cycle.get("ram_peak_mib"),
-            "gpu_vram_peak_mib_global": cycle.get("gpu_vram_peak_mib_global"),
-            "error": cycle.get("error"),
-        })
+        cycles.append(
+            {
+                "decode_tok_s": cycle.get("decode_tok_s"),
+                "returncode": cycle.get("returncode"),
+                "timed_out": cycle.get("timed_out"),
+                "ram_peak_mib": cycle.get("ram_peak_mib"),
+                "gpu_vram_peak_mib_global": cycle.get("gpu_vram_peak_mib_global"),
+                "error": cycle.get("error"),
+            }
+        )
         if cycle.get("decode_tok_s") is not None:
             rates.append(cycle["decode_tok_s"])
     soak_degradation = degradation(rates[0], rates[-1]) if len(rates) >= 2 else None
@@ -228,16 +270,48 @@ def main(argv: list[str] | None = None) -> int:
     error_text = str(benchmark.get("error") or "").lower()
     criteria = [
         measured("load", benchmark.get("load_ok"), True, bool(benchmark.get("load_ok"))),
-        measured("decode_tok_s", decode, DECODE_MIN_TOK_S, decode >= DECODE_MIN_TOK_S) if decode is not None else not_measured("decode_tok_s", DECODE_MIN_TOK_S, "decode not reported"),
-        measured("ram_peak_mib", benchmark.get("ram_peak_mib"), RAM_LIMIT_MIB, benchmark["ram_peak_mib"] <= RAM_LIMIT_MIB) if benchmark.get("ram_peak_mib") is not None else not_measured("ram_peak_mib", RAM_LIMIT_MIB, "RSS unavailable"),
-        measured("gpu_vram_peak_mib_global", benchmark.get("gpu_vram_peak_mib_global"), VRAM_LIMIT_MIB, benchmark["gpu_vram_peak_mib_global"] <= VRAM_LIMIT_MIB) if benchmark.get("gpu_vram_peak_mib_global") is not None else not_measured("gpu_vram_peak_mib_global", VRAM_LIMIT_MIB, benchmark.get("gpu_vram_error") or "VRAM unavailable"),
+        measured("decode_tok_s", decode, DECODE_MIN_TOK_S, decode >= DECODE_MIN_TOK_S)
+        if decode is not None
+        else not_measured("decode_tok_s", DECODE_MIN_TOK_S, "decode not reported"),
+        measured(
+            "ram_peak_mib",
+            benchmark.get("ram_peak_mib"),
+            RAM_LIMIT_MIB,
+            benchmark["ram_peak_mib"] <= RAM_LIMIT_MIB,
+        )
+        if benchmark.get("ram_peak_mib") is not None
+        else not_measured("ram_peak_mib", RAM_LIMIT_MIB, "RSS unavailable"),
+        measured(
+            "gpu_vram_peak_mib_global",
+            benchmark.get("gpu_vram_peak_mib_global"),
+            VRAM_LIMIT_MIB,
+            benchmark["gpu_vram_peak_mib_global"] <= VRAM_LIMIT_MIB,
+        )
+        if benchmark.get("gpu_vram_peak_mib_global") is not None
+        else not_measured(
+            "gpu_vram_peak_mib_global",
+            VRAM_LIMIT_MIB,
+            benchmark.get("gpu_vram_error") or "VRAM unavailable",
+        ),
         measured("oom", False, False, "oom" not in error_text and "out of memory" not in error_text),
-        measured("repeated_run_degradation_pct", soak_degradation, SOAK_MAX_DEGRADATION_PCT, soak_degradation <= SOAK_MAX_DEGRADATION_PCT) if soak_degradation is not None else not_measured("repeated_run_degradation_pct", SOAK_MAX_DEGRADATION_PCT, "fewer than two valid cycles"),
+        measured(
+            "repeated_run_degradation_pct",
+            soak_degradation,
+            SOAK_MAX_DEGRADATION_PCT,
+            soak_degradation <= SOAK_MAX_DEGRADATION_PCT,
+        )
+        if soak_degradation is not None
+        else not_measured(
+            "repeated_run_degradation_pct",
+            SOAK_MAX_DEGRADATION_PCT,
+            "fewer than two valid cycles",
+        ),
     ]
     evaluation = evaluate(criteria)
     result = {
         "trace_id": "bennos-pr1-owner-takeover-20260814T2230",
         "model_path": str(path),
+        "model": path.name,
         "configuration": vars(args),
         "benchmark": {key: value for key, value in benchmark.items() if key != "stdout"},
         "soak_test": {"mode": "repeated_run", "cycles": cycles, "degradation_pct": soak_degradation},
