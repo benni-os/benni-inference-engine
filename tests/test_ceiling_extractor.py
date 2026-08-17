@@ -1,6 +1,7 @@
 """Tests for Skill 81 Ceiling Extractor."""
 from bie.skill81.ceiling_extractor import CeilingExtractor
 
+
 def test_extract_passthrough():
     extractor = CeilingExtractor()
     messages = [{"role": "user", "content": "Hello"}]

@@ -6,6 +6,7 @@ Fallback: usa llama.cpp diretamente se o BIEEngine não estiver disponível.
 from __future__ import annotations
 
 import argparse
+import ctypes
 import json
 import os
 import statistics
@@ -15,6 +16,7 @@ import threading
 import time
 import urllib.error
 import urllib.request
+from ctypes import wintypes
 from pathlib import Path
 from typing import Any
 
@@ -100,6 +102,64 @@ def _token_count(llm: Any, text: str) -> int:
     return max(1, len(text) // 4)
 
 
+def _rss_self_mib() -> int | None:
+    """Working set (MiB) of the current process via self-measurement.
+
+    Cross-process RSS reads are unreliable on some Windows setups, so the
+    bench reports its own peak directly instead of being observed externally.
+    """
+    if sys.platform != "win32":
+        try:
+            for line in Path("/proc/self/status").read_text(encoding="utf-8").splitlines():
+                if line.startswith("VmRSS:"):
+                    return int(line.split()[1]) // 1024
+        except (OSError, ValueError, IndexError):
+            return None
+        return None
+
+    class _PMC(ctypes.Structure):
+        _fields_ = [
+            ("cb", wintypes.DWORD),
+            ("PageFaultCount", wintypes.DWORD),
+            ("PeakWorkingSetSize", ctypes.c_size_t),
+            ("WorkingSetSize", ctypes.c_size_t),
+            ("QuotaPeakPagedPoolUsage", ctypes.c_size_t),
+            ("QuotaPagedPoolUsage", ctypes.c_size_t),
+            ("QuotaPeakNonPagedPoolUsage", ctypes.c_size_t),
+            ("QuotaNonPagedPoolUsage", ctypes.c_size_t),
+            ("PagefileUsage", ctypes.c_size_t),
+            ("PeakPagefileUsage", ctypes.c_size_t),
+            ("PrivateUsage", ctypes.c_size_t),
+        ]
+
+    try:
+        k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        psapi = ctypes.WinDLL("psapi", use_last_error=True)
+        k32.GetCurrentProcess.argtypes = []
+        k32.GetCurrentProcess.restype = wintypes.HANDLE
+        psapi.GetProcessMemoryInfo.argtypes = [
+            wintypes.HANDLE,
+            ctypes.POINTER(_PMC),
+            wintypes.DWORD,
+        ]
+        psapi.GetProcessMemoryInfo.restype = wintypes.BOOL
+        handle = k32.GetCurrentProcess()
+        counters = _PMC()
+        counters.cb = ctypes.sizeof(counters)
+        ok = psapi.GetProcessMemoryInfo(handle, ctypes.byref(counters), counters.cb)
+        return int(counters.WorkingSetSize // (1024 * 1024)) if ok else None
+    except (AttributeError, OSError, ValueError):
+        return None
+
+
+def _rss_poller(stop: threading.Event, peak: list[int | None]) -> None:
+    while not stop.is_set():
+        value = _rss_self_mib()
+        if value is not None and (peak[0] is None or value > peak[0]):
+            peak[0] = value
+        stop.wait(0.25)
+
+
 def _vram_poller(stop: threading.Event, peak: list[int]) -> None:
     while not stop.is_set():
         value = _gpu_vram_mib()
@@ -109,6 +169,10 @@ def _vram_poller(stop: threading.Event, peak: list[int]) -> None:
 
 
 def _build_engine(args: argparse.Namespace) -> Any:
+    if args.engine == "llama-server":
+        from bie.serve.llama_server_adapter import LlamaServerAdapter
+
+        return LlamaServerAdapter(args.model)
     cls = _engine_cls()
     return cls(
         args.model,
@@ -161,6 +225,10 @@ def cmd_bench(args: argparse.Namespace) -> int:
     vram_baseline = _gpu_vram_mib()
     _apply_ngl_override(args)
     engine = _build_engine(args)
+    stop = threading.Event()
+    rss_peak: list[int | None] = [None]
+    rss_poller = threading.Thread(target=_rss_poller, args=(stop, rss_peak))
+    rss_poller.start()
     t0 = time.time()
     rc = engine.load()
     load_s = round(time.time() - t0, 2)
@@ -171,7 +239,6 @@ def cmd_bench(args: argparse.Namespace) -> int:
     for _ in engine.stream(prompt, max_tokens=8, temperature=0.0):
         pass
 
-    stop = threading.Event()
     peak: list[int] = [vram_baseline or 0]
     poller = threading.Thread(target=_vram_poller, args=(stop, peak))
     poller.start()
@@ -180,6 +247,7 @@ def cmd_bench(args: argparse.Namespace) -> int:
         reps.append(_run_rep(engine, llm, prompt, args.max_tokens))
     stop.set()
     poller.join(timeout=2)
+    rss_poller.join(timeout=2)
     engine.unload()
 
     decode_rates = [r["decode_tok_s"] for r in reps]
@@ -188,8 +256,10 @@ def cmd_bench(args: argparse.Namespace) -> int:
     p50 = lats[len(lats) // 2] * 1000 if lats else 0.0
     p95 = lats[min(len(lats) - 1, int(len(lats) * 0.95))] * 1000 if lats else 0.0
     vram_after = _gpu_vram_mib()
+    model_label = Path(args.model_path).name if args.model_path else args.model
     result = {
-        "model": args.model,
+        "model": model_label,
+        "model_path": str(Path(args.model_path)) if args.model_path else None,
         "n_ctx": args.context,
         "ngl": rc.get("ngl"),
         "load_time_s": load_s,
@@ -200,6 +270,7 @@ def cmd_bench(args: argparse.Namespace) -> int:
         "prefill_est_tok_s": round(statistics.mean(prefill_rates), 1),
         "p50_ms_per_tok": round(p50, 1),
         "p95_ms_per_tok": round(p95, 1),
+        "ram_peak_mib": rss_peak[0],
         "vram_peak_mib": peak[0],
         "vram_delta_mib": (vram_after - vram_baseline) if vram_baseline and vram_after else None,
     }
@@ -254,6 +325,12 @@ def build_parser() -> argparse.ArgumentParser:
         p.add_argument("--batch", type=int, default=512)
         p.add_argument("--n-gpu-layers", type=int, default=None)
         p.add_argument("--verbose", action="store_true")
+        p.add_argument(
+            "--engine",
+            choices=["bie", "llama-server"],
+            default="bie",
+            help="experimental: use a native llama-server over HTTP instead of the bundled backend",
+        )
         if name == "bench":
             p.add_argument("--prompt-tokens", type=int, default=512)
             p.add_argument("--max-tokens", type=int, default=128)
