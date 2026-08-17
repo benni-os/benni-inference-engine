@@ -169,6 +169,10 @@ def _vram_poller(stop: threading.Event, peak: list[int]) -> None:
 
 
 def _build_engine(args: argparse.Namespace) -> Any:
+    if args.engine == "llama-server":
+        from bie.serve.llama_server_adapter import LlamaServerAdapter
+
+        return LlamaServerAdapter(args.model)
     cls = _engine_cls()
     return cls(
         args.model,
@@ -321,6 +325,12 @@ def build_parser() -> argparse.ArgumentParser:
         p.add_argument("--batch", type=int, default=512)
         p.add_argument("--n-gpu-layers", type=int, default=None)
         p.add_argument("--verbose", action="store_true")
+        p.add_argument(
+            "--engine",
+            choices=["bie", "llama-server"],
+            default="bie",
+            help="experimental: use a native llama-server over HTTP instead of the bundled backend",
+        )
         if name == "bench":
             p.add_argument("--prompt-tokens", type=int, default=512)
             p.add_argument("--max-tokens", type=int, default=128)
