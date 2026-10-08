@@ -4,10 +4,12 @@
 
 <br/>
 
-<img src="https://readme-typing-svg.demolab.com?font=JetBrains+Mono&weight=700&size=20&duration=3000&pause=800&color=7000FF&center=true&vCenter=true&multiline=true&repeat=true&width=900&height=80&lines=MoE+Offload.+GPU%2BCPU+Hybrid.+Consumer+Hardware.;Skill+81+Ceiling+Extraction+built-in.;OpenAI-Compatible+%E2%80%94+JARVAS-2+Native." alt="Typing SVG" />
+<img src="https://readme-typing-svg.demolab.com?font=JetBrains+Mono&weight=700&size=20&duration=3000&pause=800&color=7000FF&center=true&vCenter=true&multiline=true&repeat=true&width=900&height=80&lines=MoE+Offload.+GPU%2BCPU+Hybrid.+Consumer+Hardware.;Skill+81+Ceiling+Extraction+built-in.;OpenAI-Compatible+%E2%80%94+Project+Benjamin+Native." alt="Typing SVG" />
 
 <br/><br/>
 
+[![CI](https://github.com/benni-os/benni-inference-engine/actions/workflows/ci.yml/badge.svg)](https://github.com/benni-os/benni-inference-engine/actions/workflows/ci.yml)
+[![Tests](https://img.shields.io/badge/Tests-97%20Passed-00C853?style=for-the-badge&logo=pytest&logoColor=white)](#-benchmarks-rtx-4060-8gb--ryzen-5-5600x--32gb-ram)
 [![Python](https://img.shields.io/badge/Python-3.11+-7000FF?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
 [![CUDA](https://img.shields.io/badge/CUDA-12.x-76B900?style=for-the-badge&logo=nvidia&logoColor=white)](https://developer.nvidia.com/cuda-toolkit)
 [![llama.cpp](https://img.shields.io/badge/llama.cpp-GPU%2BCPU-FF6B35?style=for-the-badge&logo=cplusplus&logoColor=white)](https://github.com/ggml-org/llama.cpp)
