@@ -12,7 +12,7 @@ requires-python = ">=3.11"
 authors = [
   { name = "Benni Alencar", email = "benni@benni-os.net" }
 ]
-keywords = ["llm", "inference", "moe", "gpu", "cpu", "offload", "openai", "mcp", "jarvas", "benni-os"]
+keywords = ["llm", "inference", "moe", "gpu", "cpu", "offload", "openai", "mcp", "project-benjamin", "benni-os"]
 classifiers = [
   "Programming Language :: Python :: 3",
   "License :: OSI Approved :: MIT License",
@@ -47,12 +47,17 @@ all = [
 ]
 
 [project.scripts]
-bie = "bie.cli:app"
+bie = "bie.serve.__main__:main"
 
 [project.urls]
 Homepage = "https://github.com/benni-os/benni-inference-engine"
 Repository = "https://github.com/benni-os/benni-inference-engine"
 Issues = "https://github.com/benni-os/benni-inference-engine/issues"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["bie*"]
+exclude = ["logs*", "output*", "tests*", "scripts*"]
 
 [tool.ruff]
 line-length = 100

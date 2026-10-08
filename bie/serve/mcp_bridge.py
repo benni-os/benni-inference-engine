@@ -1,9 +1,9 @@
-"""MCP Bridge — JARVAS-2 native tool integration. No nexus hop required."""
+"""MCP Bridge — Project Benjamin native tool integration. No nexus hop required."""
 
 class BIETool:
     """
-    Native MCP tool for JARVAS-2.
-    Usage in jarvas-2/mcp_server.py:
+    Native MCP tool for Project Benjamin.
+    Usage in Project-Benjamin/mcp_server.py:
 
         from bie.mcp_bridge import BIETool
 
@@ -18,7 +18,7 @@ class BIETool:
     async def complete(cls, prompt: str, task_type: str = "general", model: str = "qwen3-30b-a3b") -> str:
         """
         Route to local BIE engine with Skill 81 active.
-        task_type maps to JARVAS-2 Formation types: DELTA, CHARLIE, BRAVO, etc.
+        task_type maps to Project Benjamin Formation types: DELTA, CHARLIE, BRAVO, etc.
         TODO: Phase 1 — implement HTTP call to openai_compat.py
         """
         import httpx

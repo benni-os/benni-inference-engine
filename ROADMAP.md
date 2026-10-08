@@ -18,10 +18,10 @@
 - [ ] `kv_manager.py` — sliding window compression
 - [ ] SA-81E model profiles: Qwen3, Kimi K2, DeepSeek V4
 
-## Phase 3 — JARVAS-2 Native + Open Source Launch
+## Phase 3 — Project Benjamin Native + Open Source Launch
 > Target: 2 weeks after Phase 2
 
-- [ ] `mcp_bridge.py` — full JARVAS-2 integration
+- [ ] `mcp_bridge.py` — full Project Benjamin integration
 - [ ] Task routing policy (DELTA/CHARLIE/BRAVO → local; ALPHA/FOXTROT → cloud)
 - [ ] PyPI publish: `pip install benni-inference-engine`
 - [ ] Product Hunt launch alongside mcp-forge + operator-gateway

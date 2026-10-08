@@ -12,5 +12,6 @@ build/
 .venv-bie-runtime/
 venv/
 output/
+logs/
 .coverage
 htmlcov/

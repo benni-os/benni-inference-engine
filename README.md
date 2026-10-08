@@ -31,7 +31,7 @@
 Every other inference runtime treats the model as a black box. `BIE` treats the model as a cognitive system to be engineered — injecting the right prompt architecture, context compression, and behavioral profile per model, per task, automatically.
 
 ```
-JARVAS-2 / Any MCP Client / OpenAI SDK
+Project Benjamin / Any MCP Client / OpenAI SDK
          ↓ POST /v1/chat/completions  (OpenAI-compatible)
     ┌─────────────────────────────────────────┐
     │         benni-inference-engine          │
@@ -60,7 +60,7 @@ JARVAS-2 / Any MCP Client / OpenAI SDK
 | **GPU+CPU Hybrid** | Attention + shared experts on VRAM; routed FFN experts on RAM — automatic split |
 | **MoE-First** | Built exclusively for Mixture-of-Experts models — Qwen3, DeepSeek, Kimi K2, GLM |
 | **Skill 81 Built-In** | Every inference call runs SA-81A/B/C/D — Ceiling Extraction, context compression, hallucination guard |
-| **JARVAS-2 Native** | MCP tool bridge built-in — no nexus hop required for local tasks |
+| **Project Benjamin Native** | MCP tool bridge built-in — no nexus hop required for local tasks |
 | **OpenAI-Compatible** | Drop-in for any SDK — LangChain, LlamaIndex, Vercel AI, AutoGen |
 | **Adaptive Hot-Pin** | Learns your usage patterns and pins hot experts in spare RAM automatically |
 | **Zero Manual Tuning** | Auto-detects VRAM, RAM, cores — sets `-ngl`, cache size, thread count automatically |
@@ -286,13 +286,14 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for full guidelines.
 | Product | Repo | Role | Status |
 |---|---|---|---|
 | 🧠 **Benni Master OS** | [benni-os/Benni-Master-OS](https://github.com/benni-os/Benni-Master-OS) | General Brain — sovereign orchestrator | 🟢 Live |
-| ⚡ **Benni Gravity** | [benni-os/Benni-gravity-0](https://github.com/benni-os/Benni-gravity-0) | Local operator runtime | 🟢 Ativo |
+| ⚡ **Project Adam** | [benni-os/Project-Adam](https://github.com/benni-os/Project-Adam) | Local operator runtime & agent swarm | 🟢 Ativo |
 | 🔌 **Operator Gateway** | [benni-os/benni-operator-gateway](https://github.com/benni-os/benni-operator-gateway) | Open-source MCP HTTP gateway | 🟢 MIT |
 | 🐍 **mcp-forge** | [benni-os/mcp-forge](https://github.com/benni-os/mcp-forge) | FastAPI-style Python MCP framework | 🟢 PyPI |
 | ⚡ **benni-nexus** | [benni-os/benni-nexus](https://github.com/benni-os/benni-nexus) | LLM gateway — strategy routing | 🟢 npm |
 | 🔥 **benni-inference-engine** | [benni-os/benni-inference-engine](https://github.com/benni-os/benni-inference-engine) | GPU+CPU hybrid inference — you are here | 🔥 Building |
-| 🛠️ **Benni Control Plane** | MCP on Railway | NEXUS v5 — persistent memory layer | 🟢 Railway |
-| 🤖 **JARVAS-2** | [benni-os/jarvas-2](https://github.com/benni-os/jarvas-2) | Autonomous dispatch + Wave 6 billing | 🔥 Hot |
+| 🛠️ **Benni Control Plane** | MCP on Railway | Quad-Mesh State, RLS isolation & memory layer | 🟢 Live |
+| 🤖 **Project Benjamin** | [benni-os/Project-Benjamin](https://github.com/benni-os/Project-Benjamin) | Sovereign mechanical execution arm & zero-token I/O | 🔥 Hot |
+| 🌌 **Project Genesis** | [benni-os/benni-os-genesis](https://github.com/benni-os/benni-os-genesis) | Sovereign IDE & Execution Harness (com Creative Studio e MONOMO runtime nativos) | 🟢 Live |
 | 🛍️ **Modo Operador** | [benni-os/modo-operador](https://github.com/benni-os/modo-operador) | Produto BR — R$97 | 🟢 Live |
 
 <br/>
@@ -303,7 +304,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for full guidelines.
 
 **benni-inference-engine** — *GPU+CPU Hybrid Inference by [Benni OS](https://github.com/benni-os)*
 
-`MOE_OFFLOAD` • `SKILL_81_NATIVE` • `OPENAI_COMPATIBLE` • `JARVAS2_NATIVE` • `MIT_LICENSE`
+`MOE_OFFLOAD` • `SKILL_81_NATIVE` • `OPENAI_COMPATIBLE` • `PROJECT_BENJAMIN_NATIVE` • `MIT_LICENSE`
 
 Built by [Benni Alencar](https://github.com/nsfwbunny)
 
