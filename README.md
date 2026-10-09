@@ -172,12 +172,12 @@ $ bie info
 
 <img src="https://raw.githubusercontent.com/andreasbm/readme/master/assets/lines/dark.png" width="100%"/>
 
-## 🔌 JARVAS-2 Integration
+## 🔌 Project Benjamin Integration
 
-`BIE` ships with a native MCP bridge — JARVAS-2 calls it directly as a tool, without routing through `benni-nexus`:
+`BIE` ships with a native MCP bridge — Project Benjamin calls it directly as a tool, without routing through `benni-nexus`:
 
 ```python
-# jarvas-2/mcp_server.py — add BIE as a native tool
+# Project-Benjamin/mcp_server.py — add BIE as a native tool
 from bie.mcp_bridge import BIETool
 
 @mcp.tool()
@@ -220,7 +220,7 @@ benni-inference-engine/
 │   │       └── deepseek_v4.json
 │   ├── serve/
 │   │   ├── openai_compat.py    # FastAPI — POST /v1/chat/completions
-│   │   └── mcp_bridge.py       # MCP tool nativo para JARVAS-2
+│   │   └── mcp_bridge.py       # MCP tool nativo para Project Benjamin
 │   └── skill81/
 │       ├── ceiling_extractor.py  # SA-81A/B/C — prompt arch + context compress
 │       └── hallucination_guard.py # SA-81D — monitor em tempo real
